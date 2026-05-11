@@ -1,0 +1,40 @@
+
+DECLARE @i INT = 0;
+WHILE @i < 50000
+BEGIN
+ INSERT INTO Payments (payment_date,amount,id_policy)
+ VALUES (
+ Dateadd(day,
+ -ABS(checksum(newid()))%1000,
+ getdate()),
+ ROUND(rand()*5000,2),
+ (select top 1 id_policy from Policies order by newid())
+ );
+ SET @i = @i + 1;
+END
+
+
+
+WHILE 1=1
+BEGIN
+ SELECT COUNT(*)
+ FROM Payments p1
+ CROSS JOIN Payments p2;
+END
+
+
+
+
+
+WHILE 1=1
+BEGIN
+ SELECT * FROM Payments;
+END
+
+BEGIN TRAN;
+UPDATE Payments
+SET amount = amount + 1000
+WHERE id_payment = 1;
+UPDATE Payments
+SET amount = amount + 500
+WHERE id_payment = 1;
