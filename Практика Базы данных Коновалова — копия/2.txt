@@ -1,0 +1,194 @@
+CREATE DATABASE PracticeSecurityDB;
+GO
+USE PracticeSecurityDB;
+GO
+CREATE TABLE Employees (
+ EmployeeID INT IDENTITY PRIMARY KEY,
+ FullName NVARCHAR(100),
+ Position NVARCHAR(100),
+ Salary MONEY
+);
+INSERT INTO Employees (FullName, Position)
+VALUES
+(N'Иванов Иван', N'Менеджер'),
+(N'Петров Петр', N'Бухгалтер'),
+(N'Сидорова Анна', N'Директор');
+GO
+CREATE LOGIN reader_login WITH PASSWORD = 'Reader_12345';
+CREATE LOGIN editor_login WITH PASSWORD = 'Editor_12345';
+CREATE LOGIN admin_login WITH PASSWORD = 'Admin_12345';
+GO
+CREATE USER reader_user FOR LOGIN reader_login;
+CREATE USER editor_user FOR LOGIN editor_login;
+CREATE USER admin_user FOR LOGIN admin_login;
+GO
+SELECT name, type_desc
+FROM sys.database_principals
+WHERE type IN ('S', 'U');
+или:
+EXEC sp_helpuser;
+CREATE ROLE role_reader;
+CREATE ROLE role_editor;
+CREATE ROLE role_admin;
+GO
+SELECT name, type_desc
+FROM sys.database_principals
+WHERE type = 'R';
+
+ALTER ROLE role_reader ADD MEMBER reader_user;
+ALTER ROLE role_editor ADD MEMBER editor_user;
+ALTER ROLE role_admin ADD MEMBER admin_user;
+
+SELECT
+ r.name AS RoleName,
+ u.name AS UserName
+FROM sys.database_role_members rm
+JOIN sys.database_principals r ON rm.role_principal_id = r.principal_id
+JOIN sys.database_principals u ON rm.member_principal_id = u.principal_id;
+
+ALTER ROLE role_reader ADD MEMBER reader_user;
+ALTER ROLE role_editor ADD MEMBER reader_user;
+
+ALTER ROLE role_reader ADD MEMBER user1;
+ALTER ROLE role_reader ADD MEMBER user2;
+ALTER ROLE role_reader ADD MEMBER user3;
+
+
+
+
+
+ALTER ROLE role_reader DROP MEMBER reader_user;
+
+EXEC sp_helprolemember 'role_reader';
+
+GRANT SELECT ON Employees TO role_reader;
+
+GRANT SELECT, INSERT, UPDATE ON Employees TO role_editor;
+проверка
+SELECT * FROM Employees;
+INSERT INTO Employees VALUES (...);
+UPDATE Employees SET Salary = 80000 WHERE EmployeeID = 1;
+
+DENY DELETE ON Employees TO role_editor;
+
+GRANT DELETE ON Employees TO role_editor;
+DENY DELETE ON Employees TO role_editor;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON Employees TO role_admin;
+
+
+SELECT *
+FROM sys.database_permissions;
+
+GRANT SELECT ON Employees TO role_reader;
+GRANT UPDATE ON Employees TO role_editor;
+
+GRANT SELECT ON Employees TO role_reader;
+DENY SELECT ON Employees TO role_editor;
+
+CREATE VIEW Employees_Public AS
+SELECT FullName, Position FROM Employees;
+доступ
+GRANT SELECT ON Employees_Public TO role_reader;
+
+REVOKE INSERT ON Employees FROM role_editor;
+
+
+EXEC sp_helprotect;
+ъ
+GRANT SELECT (FullName, Position) ON Employees TO role_reader;
+
+
+
+
+
+CREATE DATABASE PracticeSecurityDB;
+GO
+USE PracticeSecurityDB;
+GO
+CREATE TABLE Employees (
+ EmployeeID INT IDENTITY PRIMARY KEY,
+ FullName NVARCHAR(100),
+ Position NVARCHAR(100),
+ Salary MONEY
+);
+INSERT INTO Employees (FullName, Position, Salary)
+VALUES
+(N'Иванов Иван', N'Менеджер', 60000),
+(N'Петров Петр', N'Бухгалтер', 70000),
+(N'Сидорова Анна', N'Директор', 120000);
+GO
+2. Создание логинов и пользователей
+CREATE LOGIN reader_login WITH PASSWORD = 'Reader_12345';
+CREATE LOGIN editor_login WITH PASSWORD = 'Editor_12345';
+CREATE LOGIN admin_login WITH PASSWORD = 'Admin_12345';
+GO
+USE PracticeSecurityDB;
+GO
+CREATE USER reader_user FOR LOGIN reader_login;
+CREATE USER editor_user FOR LOGIN editor_login;
+CREATE USER admin_user FOR LOGIN admin_login;
+GO
+3. Создание ролей базы данных
+CREATE ROLE role_reader;
+CREATE ROLE role_editor;
+CREATE ROLE role_admin;
+GO
+4. Добавление пользователей в роли
+ALTER ROLE role_reader ADD MEMBER reader_user;
+ALTER ROLE role_editor ADD MEMBER editor_user;
+ALTER ROLE role_admin ADD MEMBER admin_user;
+GO
+5. Назначение прав ролям
+Роль только для чтения
+GRANT SELECT ON Employees TO role_reader;
+GO
+Роль для чтения и изменения данных
+GRANT SELECT, INSERT, UPDATE ON Employees TO role_editor;
+DENY DELETE ON Employees TO role_editor;
+GO
+Роль администратора таблицы
+GRANT SELECT, INSERT, UPDATE, DELETE ON Employees TO role_admin;
+GO
+6. Проверка прав пользователей
+Выполните вход под пользователем reader_login и попробуйте:
+USE PracticeSecurityDB;
+SELECT * FROM Employees;
+INSERT INTO Employees (FullName, Position, Salary)
+VALUES (N'Тестовый пользователь', N'Стажер', 30000);
+Ожидаемый результат: SELECT выполнится, INSERT будет запрещен.
+Выполните вход под пользователем editor_login:
+USE PracticeSecurityDB;
+SELECT * FROM Employees;
+UPDATE Employees
+SET Salary = 75000
+WHERE FullName = N'Петров Петр';
+DELETE FROM Employees
+WHERE FullName = N'Иванов Иван';
+Ожидаемый результат: SELECT и UPDATE выполнятся, DELETE будет запрещен.
+Выполните вход под пользователем admin_login:
+USE PracticeSecurityDB;
+DELETE FROM Employees
+WHERE FullName = N'Иванов Иван';
+Ожидаемый результат: удаление выполнится.
+7. Ограничение доступа к отдельному столбцу
+Запретим роли role_reader просмотр зарплаты:
+DENY SELECT ON Employees(Salary) TO role_reader;
+GO
+Проверка:
+SELECT FullName, Position FROM Employees;
+SELECT Salary FROM Employees;
+Ожидаемый результат: первый запрос выполнится, второй будет запрещен.
+8. Отмена прав
+Отменим право на добавление данных для роли редактора:
+REVOKE INSERT ON Employees FROM role_editor;
+GO
+Проверка:
+INSERT INTO Employees (FullName, Position, Salary)
+VALUES (N'Новый сотрудник', N'Оператор', 40000);
+Ожидаемый результат: вставка больше недоступна.
+9. Просмотр ролей и пользователей
+EXEC sp_helprole;
+EXEC sp_helprolemember;
+EXEC sp_helpuser;
+GO
